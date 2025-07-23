@@ -1,6 +1,6 @@
 import requests
 
-url = "http://localhost:8000/semantic_search_SELFormer"
+url = "http://localhost:8000/fingerprint_semantic_search"
 payload = {
     "texts": ["CCO"],
     "top_k": 5
