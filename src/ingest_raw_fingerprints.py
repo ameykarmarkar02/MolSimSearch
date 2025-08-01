@@ -5,7 +5,10 @@ import numpy as np
 import faiss
 
 # ─── CONFIG ───────────────────────────────────────────────────────────────────
-DATA_DIR    = "/mnt/d/akarmark/data"
+#DATA_DIR    = "/mnt/d/akarmark/data"
+# ─── 2) Determine data directory relative to this script
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "data"))
 SMILES_CSV  = os.path.join(DATA_DIR, "smiles_fingerprints.csv")
 SELFIES_CSV = os.path.join(DATA_DIR, "selfies_fingerprints.csv")
 OUT_DIR     = os.path.join(DATA_DIR, "faiss_indexes")
