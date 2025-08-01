@@ -5,7 +5,8 @@ import numpy as np
 import faiss
 
 # ─── CONFIG ───────────────────────────────────────────────────────────────────
-DATA_DIR        = os.path.join(os.path.dirname(__file__), "..", "data")
+#DATA_DIR        = os.path.join(os.path.dirname(__file__), "..", "data")
+DATA_DIR    = "/mnt/d/akarmark/data"
 SMILES_CSV      = os.path.join(DATA_DIR, "sample_embeddings.csv")
 SELFIES_CSV     = os.path.join(DATA_DIR, "selfies_embeddings.csv")
 OUT_DIR         = os.path.join(DATA_DIR, "faiss_indexes")
