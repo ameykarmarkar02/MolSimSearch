@@ -7,7 +7,8 @@ import shutil
 URL = "https://ftp.ncbi.nlm.nih.gov/pubchem/Compound/CURRENT-Full/SDF/Compound_000000001_000500000.sdf.gz"
 
 # 2) Local paths
-DATA_DIR  = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "data"))
+#DATA_DIR  = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "data"))
+DATA_DIR = "/mnt/d/akarmark/data"
 LOCAL_GZ  = os.path.join(DATA_DIR, "Compound_000000001_000500000.sdf.gz")
 LOCAL_SDF = os.path.join(DATA_DIR, "Compound_000000001_000500000.sdf")
 
