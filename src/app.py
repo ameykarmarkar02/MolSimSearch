@@ -66,7 +66,7 @@ sel_model.eval()
 
 
 
-# New SELFormer FAISS index
+# # New SELFormer FAISS index
 # SMILES_SELF_INDEX_PATH    = "/mnt/d/akarmark/data/faiss_indexes/smiles_SELFormer.index"
 # SMILES_SELF_IDMAP_PATH    = "/mnt/d/akarmark/data/faiss_indexes/smiles_SELFormer_ids.pkl"
 # smiles_SELFormer_index, smiles_SELFormer_id_map = load_faiss_index(
@@ -200,14 +200,19 @@ class EmbedResponse(BaseModel):
     embeddings: list[list[float]]
 
 class SearchResponse(BaseModel):
-    ids: list[list[str]]
-    distances: list[list[float]]
-    smiles: list[list[str]] = []
-    queries: list[str] = []
-    #ged: List[List[Optional[float]]]
-    #ged: Optional[List[List[float]]] = None  # ← make optional
-    ged: Optional[list[list[Optional[float]]]] = None  # allow None values inside GED matrix
-    hamming: Optional[List[List[int]]] = None          # Hamming distances
+    ids: List[List[str]]
+    distances: List[List[float]]
+    smiles: List[List[str]] = []
+    queries: List[str] = []
+    ged: Optional[List[List[Optional[float]]]] = None
+    hamming: Optional[List[List[int]]] = None
+    tanimoto: Optional[List[List[float]]] = None
+    cosine: Optional[List[List[float]]] = None  # Cosine similarity scores
+    fingerprints_query: Optional[List[Optional[List[int]]]] = None     # ECFP4 bits for each query
+    fingerprints_hits: Optional[List[List[Optional[List[int]]]]] = None  # ECFP4 bits for each hit
+    fingerprints_query_floats: Optional[List[List[float]]] = None      # FAISS-normalized float vectors for each query
+    fingerprints_hits_floats: Optional[List[List[List[float]]]] = None  # FAISS-normalized float vectors for each hit
+
 
 
 class SelfiesSearchResponse(BaseModel):
@@ -700,59 +705,84 @@ def selfies_semantic_search(req: SemanticSearchRequest):
     # 4) Compute GED matrix (SELFIES → SMILES → NetworkX)
     ged_matrix: List[List[Optional[float]]] = []
     for q_selfie, hit_batch in zip(req.texts, selfies_hits):
-        # pull original SMILES for the query SELFIES
         q_row = df_mols[df_mols["SELFIES"] == q_selfie]
         if q_row.empty:
             ged_matrix.append([None] * len(hit_batch))
             continue
 
-        Gq = mol_to_nx(q_row.iloc[0]["SMILES"])
-        row_ged: List[Optional[float]] = []
+        # guard query graph construction
+        try:
+            Gq = mol_to_nx(q_row.iloc[0]["SMILES"])
+        except ValueError:
+            ged_matrix.append([None] * len(hit_batch))
+            continue
 
+        row_ged: List[Optional[float]] = []
         for hit_sf in hit_batch:
             if hit_sf == "UNKNOWN":
                 row_ged.append(None)
-            else:
-                hit_row = df_mols[df_mols["SELFIES"] == hit_sf]
-                if hit_row.empty:
-                    row_ged.append(None)
-                else:
-                    Gr = mol_to_nx(hit_row.iloc[0]["SMILES"])
-                    ged_val = nx.graph_edit_distance(
-                        Gq, Gr,
-                        node_ins_cost=lambda _: 1,
-                        node_del_cost=lambda _: 1,
-                        node_subst_cost=lambda a, b: 0 if a["label"] == b["label"] else 1,
-                        edge_ins_cost=lambda _: 1,
-                        edge_del_cost=lambda _: 1,
-                        timeout=300.0
-                    )
-                    row_ged.append(ged_val)
+                continue
+
+            hit_row = df_mols[df_mols["SELFIES"] == hit_sf]
+            if hit_row.empty:
+                row_ged.append(None)
+                continue
+
+            # guard hit graph construction
+            try:
+                Gr = mol_to_nx(hit_row.iloc[0]["SMILES"])
+            except ValueError:
+                row_ged.append(None)
+                continue
+
+            ged_val = nx.graph_edit_distance(
+                Gq, Gr,
+                node_ins_cost=lambda _: 1,
+                node_del_cost=lambda _: 1,
+                node_subst_cost=lambda a, b: 0 if a["label"] == b["label"] else 1,
+                edge_ins_cost=lambda _: 1,
+                edge_del_cost=lambda _: 1,
+                timeout=300.0
+            )
+            row_ged.append(ged_val)
         ged_matrix.append(row_ged)
 
     # 5) Compute Hamming distances for SELFIES hits
     hamming_matrix: List[List[int]] = []
     for q_selfie, hit_batch in zip(req.texts, selfies_hits):
-        # query SMILES
         q_row = df_mols[df_mols["SELFIES"] == q_selfie]
         if q_row.empty:
             hamming_matrix.append([-1] * len(hit_batch))
             continue
-        mol_q = Chem.MolFromSmiles(q_row.iloc[0]["SMILES"])
-        fp_q = AllChem.GetMorganFingerprintAsBitVect(mol_q, 2, nBits=1024)
+
+        # guard query fingerprint generation
+        try:
+            mol_q = Chem.MolFromSmiles(q_row.iloc[0]["SMILES"])
+            fp_q = AllChem.GetMorganFingerprintAsBitVect(mol_q, 2, nBits=1024)
+        except Exception:
+            hamming_matrix.append([-1] * len(hit_batch))
+            continue
+
         row_ham: List[int] = []
         for hit_sf in hit_batch:
             if hit_sf == "UNKNOWN":
                 row_ham.append(-1)
-            else:
-                hit_row = df_mols[df_mols["SELFIES"] == hit_sf]
-                if hit_row.empty:
-                    row_ham.append(-1)
-                else:
-                    mol_h = Chem.MolFromSmiles(hit_row.iloc[0]["SMILES"])
-                    fp_h = AllChem.GetMorganFingerprintAsBitVect(mol_h, 2, nBits=1024)
-                    ham = hamming_distance(fp_q, fp_h)
-                    row_ham.append(ham)
+                continue
+
+            hit_row = df_mols[df_mols["SELFIES"] == hit_sf]
+            if hit_row.empty:
+                row_ham.append(-1)
+                continue
+
+            # guard hit fingerprint generation
+            try:
+                mol_h = Chem.MolFromSmiles(hit_row.iloc[0]["SMILES"])
+                fp_h = AllChem.GetMorganFingerprintAsBitVect(mol_h, 2, nBits=1024)
+                ham = hamming_distance(fp_q, fp_h)
+            except Exception:
+                ham = -1
+
+            row_ham.append(ham)
         hamming_matrix.append(row_ham)
 
     # 6) Return everything
@@ -1072,6 +1102,9 @@ def fingerprint_semantic_search(req: SemanticSearchRequest):
     }
 
 
+
+
+
 @app.post("/fingerprint_semantic_search_old", response_model=SearchResponse)
 def fingerprint_semantic_search(req: SemanticSearchRequest):
     query_vecs = []
@@ -1185,6 +1218,269 @@ def fingerprint_semantic_search(req: SemanticSearchRequest):
         "ged": ged_matrix,
         "hamming": hamming_matrix,
     }
+@app.post("/fingerprints_Tanimoto_investigate", response_model=SearchResponse)
+def fingerprints_Tanimoto_investigate(req: SemanticSearchRequest):
+    final_ids, final_smiles, final_sims = [], [], []
+
+    # Prepare storage for float-version fingerprints
+    query_fp_floats: List[List[float]] = []
+    hit_fp_floats: List[List[List[float]]] = []
+
+    # 1) Tanimoto-based similarity search (over-fetch top_k + 1 to allow filtering)
+    for smi in req.texts:
+        # compute and store float fingerprint for query
+        vec_q = generate_fingerprint_vector(smi)
+        query_fp_floats.append(vec_q.tolist() if vec_q is not None else [])
+
+        fp = smiles_to_fp.get(smi)
+        if fp is None:
+            raise HTTPException(status_code=400, detail=f"SMILES not found: {smi}")
+
+        sims = DataStructs.BulkTanimotoSimilarity(fp, all_fps)
+        idx_sorted = sorted(range(len(sims)), key=lambda i: sims[i], reverse=True)[:req.top_k + 1]
+
+        ids_row = [str(df_mols.iloc[i]["CID"]) for i in idx_sorted]
+        smi_row = [df_mols.iloc[i]["SMILES"] for i in idx_sorted]
+        sim_row = [sims[i] for i in idx_sorted]
+
+        # filter out self-hit and truncate
+        new_ids, new_smiles, new_sims, row_fp_floats = [], [], [], []
+        for cid, hit_smi, sim_val in zip(ids_row, smi_row, sim_row):
+            if hit_smi != smi and len(new_ids) < req.top_k:
+                new_ids.append(cid)
+                new_smiles.append(hit_smi)
+                new_sims.append(sim_val)
+                # compute float fingerprint for hit
+                vec_h = generate_fingerprint_vector(hit_smi)
+                row_fp_floats.append(vec_h.tolist() if vec_h is not None else [])
+        final_ids.append(new_ids)
+        final_smiles.append(new_smiles)
+        final_sims.append(new_sims)
+        hit_fp_floats.append(row_fp_floats)
+
+    # 2) Compute GED matrix (unit costs, 5-min timeout)
+    ged_matrix: List[List[Optional[float]]] = []
+    for q_smi, hits in zip(req.texts, final_smiles):
+        Gq = mol_to_nx(q_smi)
+        row_ged: List[Optional[float]] = []
+        for hit_smi in hits:
+            if hit_smi == "UNKNOWN":
+                row_ged.append(None)
+            else:
+                Gr = mol_to_nx(hit_smi)
+                ged_val = nx.graph_edit_distance(
+                    Gq, Gr,
+                    node_ins_cost=lambda _: 1,
+                    node_del_cost=lambda _: 1,
+                    node_subst_cost=lambda a, b: 0 if a['label'] == b['label'] else 1,
+                    edge_ins_cost=lambda _: 1,
+                    edge_del_cost=lambda _: 1,
+                    timeout=300.0
+                )
+                row_ged.append(ged_val)
+        ged_matrix.append(row_ged)
+
+    # 3) Compute Hamming distances
+    hamming_matrix: List[List[int]] = []
+    for smi, hits in zip(req.texts, final_smiles):
+        fp_query = smiles_to_fp.get(smi)
+        row_ham: List[int] = []
+        for hit_smi in hits:
+            if fp_query is None or hit_smi == "UNKNOWN":
+                row_ham.append(-1)
+            else:
+                fp_hit = smiles_to_fp.get(hit_smi)
+                row_ham.append(hamming_distance(fp_query, fp_hit) if fp_hit is not None else -1)
+        hamming_matrix.append(row_ham)
+
+    # 4) Compute Cosine similarity between float fingerprints
+    cosine_matrix: List[List[float]] = []
+    for q_vec, hits in zip(query_fp_floats, hit_fp_floats):
+        q_arr = np.array(q_vec, dtype=float)
+        q_norm = np.linalg.norm(q_arr)
+        row_cos: List[float] = []
+        for h_vec in hits:
+            h_arr = np.array(h_vec, dtype=float)
+            denom = q_norm * np.linalg.norm(h_arr)
+            row_cos.append(float(np.dot(q_arr, h_arr) / denom) if denom else 0.0)
+        cosine_matrix.append(row_cos)
+
+    # 5) Collect raw bit fingerprints
+    query_fp_bits: List[Optional[List[int]]] = []
+    for smi in req.texts:
+        fp = smiles_to_fp.get(smi)
+        query_fp_bits.append(list(fp) if fp is not None else None)
+
+    hit_fp_bits: List[List[Optional[List[int]]]] = []
+    for hits in final_smiles:
+        row_bits: List[Optional[List[int]]] = []
+        for hit_smi in hits:
+            fp = smiles_to_fp.get(hit_smi)
+            row_bits.append(list(fp) if fp is not None else None)
+        hit_fp_bits.append(row_bits)
+
+    # 6) Return combined response
+    return {
+        "ids": final_ids,
+        "distances": final_sims,
+        "smiles": final_smiles,
+        "queries": req.texts,
+        "fingerprints_query": query_fp_bits,
+        "fingerprints_hits": hit_fp_bits,
+        "fingerprints_query_floats": query_fp_floats,
+        "fingerprints_hits_floats": hit_fp_floats,
+        "ged": ged_matrix,
+        "hamming": hamming_matrix,
+        "tanimoto": final_sims,
+        "cosine": cosine_matrix,
+    }
+
+
+@app.post("/fingerprints_cosine_investigate", response_model=SearchResponse)
+def fingerprint_semantic_search(req: SemanticSearchRequest):
+    # 1) Generate normalized fingerprint vectors for the query SMILES
+    query_vecs = []
+    for smi in req.texts:
+        try:
+            fp_vec = generate_fingerprint_vector(smi)  # normalized inside
+            query_vecs.append(fp_vec)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Error generating fingerprint for '{smi}': {e}")
+    query_mat = np.vstack(query_vecs).astype("float32")
+
+    # Save the float-version fingerprints for queries
+    query_fp_floats: List[List[float]] = [vec.tolist() for vec in query_vecs]
+
+    # 2) FAISS cosine‐based search (fetch top_k + 1 to allow filtering out self-hits)
+    ids, dists = _search_index(
+        fingerprint_index,
+        fingerprint_id_map,
+        query_mat,
+        req.top_k + 1
+    )
+
+    # 3) Map back to SMILES strings
+    smiles_results: List[List[str]] = []
+    for row in ids:
+        row_sm = []
+        for mol_id in row:
+            vals = df_mols[df_mols["CID"].astype(str) == str(mol_id)]["SMILES"].values
+            row_sm.append(vals[0] if len(vals) > 0 else "UNKNOWN")
+        smiles_results.append(row_sm)
+
+    # 3.5) FILTER OUT QUERY SMILES FROM HITS AND TRUNCATE TO top_k
+    filtered_ids, filtered_dists, filtered_smiles = [], [], []
+    for q_smi, id_row, dist_row, smi_row in zip(req.texts, ids, dists, smiles_results):
+        new_ids, new_dists, new_smiles = [], [], []
+        for mid, dist, sm in zip(id_row, dist_row, smi_row):
+            if sm != q_smi:
+                new_ids.append(mid)
+                new_dists.append(dist)
+                new_smiles.append(sm)
+            if len(new_ids) == req.top_k:
+                break
+        filtered_ids.append(new_ids)
+        filtered_dists.append(new_dists)
+        filtered_smiles.append(new_smiles)
+
+    ids = filtered_ids
+    dists = filtered_dists
+    smiles_results = filtered_smiles
+
+    # 3.6) Gather raw ECFP4 fingerprints as bit lists
+    query_fp_bits: List[Optional[List[int]]] = []
+    for smi in req.texts:
+        fp = smiles_to_fp.get(smi)
+        query_fp_bits.append(list(fp) if fp is not None else None)
+
+    hit_fp_bits: List[List[Optional[List[int]]]] = []
+    for hits in smiles_results:
+        row_bits: List[Optional[List[int]]] = []
+        for hit_smi in hits:
+            fp = smiles_to_fp.get(hit_smi)
+            row_bits.append(list(fp) if fp is not None else None)
+        hit_fp_bits.append(row_bits)
+
+    # Collect float-version fingerprints for hits
+    hit_fp_floats: List[List[List[float]]] = []
+    for hits in smiles_results:
+        row_floats: List[List[float]] = []
+        for hit_smi in hits:
+            try:
+                vec = generate_fingerprint_vector(hit_smi)
+                row_floats.append(vec.tolist())
+            except:
+                row_floats.append([])
+        hit_fp_floats.append(row_floats)
+
+    # 4) Compute GED matrix (unit costs, 2-minute timeout)
+    ged_matrix: List[List[Optional[float]]] = []
+    for q_smi, hits in zip(req.texts, smiles_results):
+        Gq = mol_to_nx(q_smi)
+        row_ged: List[Optional[float]] = []
+        for hit_smi in hits:
+            if hit_smi == "UNKNOWN":
+                row_ged.append(None)
+            else:
+                Gr = mol_to_nx(hit_smi)
+                ged_val = nx.graph_edit_distance(
+                    Gq, Gr,
+                    node_ins_cost=lambda _: 1,
+                    node_del_cost=lambda _: 1,
+                    node_subst_cost=lambda a, b: 0 if a['label'] == b['label'] else 1,
+                    edge_ins_cost=lambda _: 1,
+                    edge_del_cost=lambda _: 1,
+                    timeout=120.0
+                )
+                row_ged.append(ged_val)
+        ged_matrix.append(row_ged)
+
+    # 5) Compute Hamming distances
+    hamming_matrix: List[List[int]] = []
+    for smi, hits in zip(req.texts, smiles_results):
+        fp_q = smiles_to_fp.get(smi)
+        row_ham: List[int] = []
+        for hit in hits:
+            if fp_q is None or hit == "UNKNOWN":
+                row_ham.append(-1)
+            else:
+                fp_h = smiles_to_fp.get(hit)
+                row_ham.append(hamming_distance(fp_q, fp_h) if fp_h is not None else -1)
+        hamming_matrix.append(row_ham)
+
+    # 6) Compute Tanimoto coefficients
+    tanimoto_matrix: List[List[float]] = []
+    for smi, hits in zip(req.texts, smiles_results):
+        fp_q = smiles_to_fp.get(smi)
+        row_tan: List[float] = []
+        if fp_q is None:
+            row_tan = [-1.0] * len(hits)
+        else:
+            fps_hits = [smiles_to_fp.get(hit) for hit in hits]
+            sims = []
+            for fp_h in fps_hits:
+                if fp_h is None:
+                    sims.append(-1.0)
+                else:
+                    sims.append(float(DataStructs.TanimotoSimilarity(fp_q, fp_h)))
+            row_tan = sims
+        tanimoto_matrix.append(row_tan)
+
+    # 7) Return full response
+    return {
+        "ids": ids,
+        "distances": dists,
+        "smiles": smiles_results,
+        "queries": req.texts,
+        "fingerprints_query": query_fp_bits,
+        "fingerprints_hits": hit_fp_bits,
+        "fingerprints_query_floats": query_fp_floats,
+        "fingerprints_hits_floats": hit_fp_floats,
+        "ged": ged_matrix,
+        "hamming": hamming_matrix,
+        "tanimoto": tanimoto_matrix
+    }
+
 
 
 @app.post("/fingerprint_semantic_search_Tanimoto_old", response_model=SearchResponse)
