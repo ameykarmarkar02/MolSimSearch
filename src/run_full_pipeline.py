@@ -11,7 +11,7 @@ API_URL       = "http://localhost:8000"
 ENDPOINT_LABELS = {
     "semantic_search": "chemBERTa_smiles",
     "selfies_semantic_search": "chemBERTa_selfies",
-    # "semantic_search_SELFormer": "SELFormer_smiles",
+    "semantic_search_SELFormer": "SELFormer_smiles",
     "selfies_semantic_search_SELFormer": "SELFormer_selfies",
     # "/fingerprints_cosine_investigate": "fingerprints_cosine_investigate",
     "fingerprint_semantic_search": "fingerprints_cosine",
