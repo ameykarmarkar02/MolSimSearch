@@ -6,7 +6,10 @@ import faiss
 
 # ─── CONFIG ───────────────────────────────────────────────────────────────────
 #DATA_DIR        = os.path.join(os.path.dirname(__file__), "..", "data")
-DATA_DIR    = "/mnt/d/akarmark/data"
+#DATA_DIR    = "/mnt/d/akarmark/data"
+# ─── 2) Determine data directory relative to this script
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "data"))
 SMILES_CSV      = os.path.join(DATA_DIR, "sample_embeddings.csv")
 SELFIES_CSV     = os.path.join(DATA_DIR, "selfies_embeddings.csv")
 OUT_DIR         = os.path.join(DATA_DIR, "faiss_indexes")
@@ -43,3 +46,4 @@ if __name__ == "__main__":
     # SELFIES
     ids_sf, vecs_sf = load_and_normalize(SELFIES_CSV)
     build_and_save(ids_sf, vecs_sf, "selfies")
+
