@@ -6,7 +6,8 @@ from transformers import AutoTokenizer, AutoModel
 
 # ─── CONFIG ───────────────────────────────────────────────────────────────────
 BASE_DIR   = os.path.dirname(__file__)
-DATA_DIR   = os.path.normpath(os.path.join(BASE_DIR, "..", "data"))
+#DATA_DIR   = os.path.normpath(os.path.join(BASE_DIR, "..", "data"))
+DATA_DIR = "/mnt/d/akarmark/data"
 INPUT_CSV  = os.path.join(DATA_DIR, "sample_smiles.csv")
 OUTPUT_CSV = os.path.join(DATA_DIR, "sample_embeddings.csv")
 MODEL_NAME = "seyonec/ChemBERTa-zinc-base-v1"
