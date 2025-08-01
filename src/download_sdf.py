@@ -8,7 +8,11 @@ URL = "https://ftp.ncbi.nlm.nih.gov/pubchem/Compound/CURRENT-Full/SDF/Compound_0
 
 # 2) Local paths
 #DATA_DIR  = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "data"))
-DATA_DIR = "/mnt/d/akarmark/data"
+#DATA_DIR = "/mnt/d/akarmark/data"
+# ─── 2) Determine data directory relative to this script
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "data"))
+
 LOCAL_GZ  = os.path.join(DATA_DIR, "Compound_000000001_000500000.sdf.gz")
 LOCAL_SDF = os.path.join(DATA_DIR, "Compound_000000001_000500000.sdf")
 
@@ -25,3 +29,4 @@ print(f"Decompressing {LOCAL_GZ}\n  → {LOCAL_SDF} ...")
 with gzip.open(LOCAL_GZ, "rb") as f_in, open(LOCAL_SDF, "wb") as f_out:
     shutil.copyfileobj(f_in, f_out)
 print("Decompression complete.")
+
