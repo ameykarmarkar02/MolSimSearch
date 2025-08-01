@@ -9,7 +9,10 @@ import selfies as sf  # pip install selfies
 # ─── CONFIG ───────────────────────────────────────────────────────────────────
 BASE_DIR    = os.path.dirname(__file__)
 #DATA_DIR    = os.path.normpath(os.path.join(BASE_DIR, "..", "data"))
-DATA_DIR = "/mnt/d/akarmark/data"
+#DATA_DIR = "/mnt/d/akarmark/data"
+# ─── 2) Determine data directory relative to this script
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "data"))
 INPUT_CSV   = os.path.join(DATA_DIR, "sample_smiles.csv")       # should have columns: CID, SMILES, [SELFIES]
 OUTPUT_CSV  = os.path.join(DATA_DIR, "smiles_fingerprints.csv")
 N_BITS      = 1024  # fingerprint length
