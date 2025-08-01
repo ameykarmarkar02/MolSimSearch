@@ -67,12 +67,12 @@ sel_model.eval()
 
 
 # # New SELFormer FAISS index
-# SMILES_SELF_INDEX_PATH    = "/mnt/d/akarmark/data/faiss_indexes/smiles_SELFormer.index"
-# SMILES_SELF_IDMAP_PATH    = "/mnt/d/akarmark/data/faiss_indexes/smiles_SELFormer_ids.pkl"
-# smiles_SELFormer_index, smiles_SELFormer_id_map = load_faiss_index(
-#     SMILES_SELF_INDEX_PATH,
-#     SMILES_SELF_IDMAP_PATH
-# )
+SMILES_SELF_INDEX_PATH    = "/mnt/d/akarmark/data/faiss_indexes/smiles_SELFormer.index"
+SMILES_SELF_IDMAP_PATH    = "/mnt/d/akarmark/data/faiss_indexes/smiles_SELFormer_ids.pkl"
+smiles_SELFormer_index, smiles_SELFormer_id_map = load_faiss_index(
+    SMILES_SELF_INDEX_PATH,
+    SMILES_SELF_IDMAP_PATH
+)
 
 #New SELFormer SELFIES index
 SELFIES_SELF_INDEX_PATH = "/mnt/d/akarmark/data/faiss_indexes/selfies_SELFormer.index"
@@ -95,37 +95,7 @@ selfies_map = dict(zip(selfies_df["CID"].astype(str), selfies_df["SELFIES"]))
 
 print("🔄 Starting to load precomputed SMILES fingerprints...")
 
-# FINGERPRINTS_CSV = "/mnt/d/akarmark/data/smiles_fingerprints.csv"
 
-# print("🔄 Reading CSV only...")
-# start = time.time()
-
-# fp_df = pd.read_csv(FINGERPRINTS_CSV)
-# # chunks = pd.read_csv(FINGERPRINTS_CSV, chunksize=5000)
-# # fp_df = pd.concat(chunks, ignore_index=True)
-
-# print(f"✅ Done reading. Rows: {len(fp_df)} | Time: {time.time() - start:.2f}s")
-
-# #fp_df = pd.read_csv(FINGERPRINTS_CSV)
-# # chunks = pd.read_csv(FINGERPRINTS_CSV, chunksize=5000)
-# # fp_df = pd.concat(chunks, ignore_index=True)
-
-
-# print(f"✅ Loaded fingerprint CSV with {len(fp_df)} rows.")
-
-# all_fps = []
-# for i in range(len(fp_df)):
-#     bits = fp_df.iloc[i].values.astype(bool)
-#     fp = ExplicitBitVect(len(bits))
-#     for j, bit in enumerate(bits):
-#         if bit:
-#             fp.SetBit(j)
-#     all_fps.append(fp)
-    
-#     if (i + 1) % 1 == 0:
-#         print(f"   → Loaded {i + 1} fingerprints...")
-
-# print(f"✅ Finished loading all {len(all_fps)} SMILES fingerprints.")
 
 FINGERPRINTS_CSV = "/mnt/d/akarmark/data/smiles_fingerprints.csv"
 
@@ -162,15 +132,6 @@ print(f"⏱ Total time: {end - start:.2f} seconds")
 # ─────────── Build SMILES→Fingerprint Lookup ───────────
 smiles_to_fp = dict(zip(df_mols["SMILES"].tolist(), all_fps))
 
-# all_selfies_fps = []
-# for sf_str in selfies_df["SELFIES"]:
-#     try:
-#         smi = sf.decoder(sf_str)
-#         mol = Chem.MolFromSmiles(smi)
-#     except:
-#         mol = None
-#     fp = ExplicitBitVect(1024) if mol is None else AllChem.GetMorganFingerprintAsBitVect(mol, 2, 1024)
-#     all_selfies_fps.append(fp)
 
 # Load fingerprint index and ID map once at startup
 fingerprint_index, fingerprint_id_map = load_faiss_index(
@@ -234,15 +195,6 @@ class ComplexQueryRequest(BaseModel):
 
 # ─────────────── Utility Functions ───────────────
 
-# def load_selfies_SELFormer_index_async():
-#     global selfies_SELFormer_index, selfies_SELFormer_id_map
-#     print("🔄 Lazy-loading SELFIES SELFormer index in background...")
-#     selfies_SELFormer_index, selfies_SELFormer_id_map = load_faiss_index(
-#         "/mnt/d/akarmark/data/faiss_indexes/selfies_SELFormer.index",
-#         "/mnt/d/akarmark/data/faiss_indexes/selfies_SELFormer_ids.pkl"
-#     )
-#     selfies_self_loaded.set()
-#     print("✅ SELFIES SELFormer index loaded.")
 
 def _embed_texts(texts: list[str]) -> np.ndarray:
     with torch.no_grad():
@@ -282,19 +234,6 @@ def generate_fingerprint_vector(smiles: str) -> np.ndarray:
     return arr
 
 
-# def mol_to_nx(smiles: str) -> nx.Graph:
-#     """Convert a SMILES string to a NetworkX graph (unit‑cost GED)."""
-#     mol = Chem.MolFromSmiles(smiles)
-#     G = nx.Graph()
-#     for atom in mol.GetAtoms():
-#         G.add_node(atom.GetIdx(), label=atom.GetSymbol())
-#     for bond in mol.GetBonds():
-#         G.add_edge(
-#             bond.GetBeginAtomIdx(),
-#             bond.GetEndAtomIdx(),
-#             label=str(bond.GetBondType())
-#         )
-#     return G
 
 def mol_to_nx(smiles: str) -> nx.Graph:
     """Convert a SMILES string to a NetworkX graph (unit-cost GED)."""
@@ -460,147 +399,147 @@ def semantic_search(req: SemanticSearchRequest):
     }
 
 # ─────────────── SELFormer Endpoint ───────────────
-# @app.post("/semantic_search_SELFormer", response_model=SearchResponse)
-# def semantic_search_SELFormer(req: SemanticSearchRequest):
-#     # 1) Build or retrieve normalized query embeddings
-#     query_vecs: List[np.ndarray] = []
-#     for smi in req.texts:
-#         stored_vec = None
-#         row = df_mols[df_mols["SMILES"] == smi]
-#         if not row.empty:
-#             try:
-#                 emb_cols = [c for c in df_mols.columns if c.startswith("emb_") and "SELFormer" in c]
-#                 vec = row[emb_cols].values.astype("float32").flatten()
-#                 if vec.size == sel_model.config.hidden_size and not np.isnan(vec).any():
-#                     stored_vec = vec / np.linalg.norm(vec)
-#             except:
-#                 pass
+@app.post("/semantic_search_SELFormer", response_model=SearchResponse)
+def semantic_search_SELFormer(req: SemanticSearchRequest):
+    # 1) Build or retrieve normalized query embeddings
+    query_vecs: List[np.ndarray] = []
+    for smi in req.texts:
+        stored_vec = None
+        row = df_mols[df_mols["SMILES"] == smi]
+        if not row.empty:
+            try:
+                emb_cols = [c for c in df_mols.columns if c.startswith("emb_") and "SELFormer" in c]
+                vec = row[emb_cols].values.astype("float32").flatten()
+                if vec.size == sel_model.config.hidden_size and not np.isnan(vec).any():
+                    stored_vec = vec / np.linalg.norm(vec)
+            except:
+                pass
 
-#         inputs = sel_tokenizer(
-#             [smi],
-#             return_tensors="pt",
-#             padding=True,
-#             truncation=True,
-#             max_length=128
-#         ).to(DEVICE)
-#         with torch.no_grad():
-#             outputs = sel_model(**inputs)
-#             fresh = outputs.last_hidden_state.mean(dim=1).cpu().numpy()[0].astype("float32")
-#         fresh /= np.linalg.norm(fresh)
+        inputs = sel_tokenizer(
+            [smi],
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+            max_length=128
+        ).to(DEVICE)
+        with torch.no_grad():
+            outputs = sel_model(**inputs)
+            fresh = outputs.last_hidden_state.mean(dim=1).cpu().numpy()[0].astype("float32")
+        fresh /= np.linalg.norm(fresh)
 
-#         query_vecs.append(stored_vec if stored_vec is not None else fresh)
+        query_vecs.append(stored_vec if stored_vec is not None else fresh)
 
-#     emb_matrix = np.vstack(query_vecs)
-#     norm_embs = emb_matrix / np.linalg.norm(emb_matrix, axis=1, keepdims=True)
+    emb_matrix = np.vstack(query_vecs)
+    norm_embs = emb_matrix / np.linalg.norm(emb_matrix, axis=1, keepdims=True)
 
-#     # 2) Run FAISS search (fetch top_k + 1 to allow filtering out self-hits)
-#     ids, dists = _search_index(
-#         smiles_SELFormer_index,
-#         smiles_SELFormer_id_map,
-#         norm_embs,
-#         req.top_k + 1
-#     )
+    # 2) Run FAISS search (fetch top_k + 1 to allow filtering out self-hits)
+    ids, dists = _search_index(
+        smiles_SELFormer_index,
+        smiles_SELFormer_id_map,
+        norm_embs,
+        req.top_k + 1
+    )
 
-#     # 3) Map back to SMILES
-#     smiles_hits: List[List[str]] = []
-#     for row_ids in ids:
-#         row_hits: List[str] = []
-#         for mid in row_ids:
-#             try:
-#                 row_hits.append(df_mols.iloc[int(mid)]["SMILES"])
-#             except:
-#                 row_hits.append("UNKNOWN")
-#         smiles_hits.append(row_hits)
+    # 3) Map back to SMILES
+    smiles_hits: List[List[str]] = []
+    for row_ids in ids:
+        row_hits: List[str] = []
+        for mid in row_ids:
+            try:
+                row_hits.append(df_mols.iloc[int(mid)]["SMILES"])
+            except:
+                row_hits.append("UNKNOWN")
+        smiles_hits.append(row_hits)
 
-#     # 3.5) FILTER OUT QUERY MOLECULE FROM HITS AND TRUNCATE TO top_k
-#     filtered_ids = []
-#     filtered_dists = []
-#     filtered_smiles_hits = []
-#     for q_smi, id_row, dist_row, smi_row in zip(req.texts, ids, dists, smiles_hits):
-#         new_ids, new_dists_row, new_smiles_row = [], [], []
-#         for mol_id, dist, sm in zip(id_row, dist_row, smi_row):
-#             if sm != q_smi:
-#                 new_ids.append(mol_id)
-#                 new_dists_row.append(dist)
-#                 new_smiles_row.append(sm)
-#             if len(new_ids) == req.top_k:
-#                 break
-#         filtered_ids.append(new_ids)
-#         filtered_dists.append(new_dists_row)
-#         filtered_smiles_hits.append(new_smiles_row)
+    # 3.5) FILTER OUT QUERY MOLECULE FROM HITS AND TRUNCATE TO top_k
+    filtered_ids = []
+    filtered_dists = []
+    filtered_smiles_hits = []
+    for q_smi, id_row, dist_row, smi_row in zip(req.texts, ids, dists, smiles_hits):
+        new_ids, new_dists_row, new_smiles_row = [], [], []
+        for mol_id, dist, sm in zip(id_row, dist_row, smi_row):
+            if sm != q_smi:
+                new_ids.append(mol_id)
+                new_dists_row.append(dist)
+                new_smiles_row.append(sm)
+            if len(new_ids) == req.top_k:
+                break
+        filtered_ids.append(new_ids)
+        filtered_dists.append(new_dists_row)
+        filtered_smiles_hits.append(new_smiles_row)
 
-#     # overwrite originals so steps 4–6 work unchanged
-#     ids = filtered_ids
-#     dists = filtered_dists
-#     smiles_hits = filtered_smiles_hits
+    # overwrite originals so steps 4–6 work unchanged
+    ids = filtered_ids
+    dists = filtered_dists
+    smiles_hits = filtered_smiles_hits
 
-#     # 4) Compute GED matrix, skipping invalid SMILES
-#     ged_matrix: List[List[Optional[float]]] = []
-#     for q_smi, hits in zip(req.texts, smiles_hits):
-#         try:
-#             Gq = mol_to_nx(q_smi)
-#         except ValueError:
-#             ged_matrix.append([None] * len(hits))
-#             continue
+    # 4) Compute GED matrix, skipping invalid SMILES
+    ged_matrix: List[List[Optional[float]]] = []
+    for q_smi, hits in zip(req.texts, smiles_hits):
+        try:
+            Gq = mol_to_nx(q_smi)
+        except ValueError:
+            ged_matrix.append([None] * len(hits))
+            continue
 
-#         row_ged: List[Optional[float]] = []
-#         for hit in hits:
-#             if hit == "UNKNOWN" or Chem.MolFromSmiles(hit) is None:
-#                 row_ged.append(None)
-#                 continue
-#             try:
-#                 Gr = mol_to_nx(hit)
-#             except ValueError:
-#                 row_ged.append(None)
-#                 continue
+        row_ged: List[Optional[float]] = []
+        for hit in hits:
+            if hit == "UNKNOWN" or Chem.MolFromSmiles(hit) is None:
+                row_ged.append(None)
+                continue
+            try:
+                Gr = mol_to_nx(hit)
+            except ValueError:
+                row_ged.append(None)
+                continue
 
-#             ged_val = nx.graph_edit_distance(
-#                 Gq, Gr,
-#                 node_ins_cost=lambda _: 1,
-#                 node_del_cost=lambda _: 1,
-#                 node_subst_cost=lambda a, b: 0 if a["label"] == b["label"] else 1,
-#                 edge_ins_cost=lambda _: 1,
-#                 edge_del_cost=lambda _: 1,
-#                 timeout=300.0
-#             )
-#             row_ged.append(ged_val)
+            ged_val = nx.graph_edit_distance(
+                Gq, Gr,
+                node_ins_cost=lambda _: 1,
+                node_del_cost=lambda _: 1,
+                node_subst_cost=lambda a, b: 0 if a["label"] == b["label"] else 1,
+                edge_ins_cost=lambda _: 1,
+                edge_del_cost=lambda _: 1,
+                timeout=300.0
+            )
+            row_ged.append(ged_val)
 
-#         ged_matrix.append(row_ged)
+        ged_matrix.append(row_ged)
 
-#     # 5) Compute Hamming distances, skipping invalid SMILES
-#     hamming_matrix: List[List[int]] = []
-#     for q_smi, hits in zip(req.texts, smiles_hits):
-#         mol_q = Chem.MolFromSmiles(q_smi)
-#         if mol_q is None:
-#             hamming_matrix.append([-1] * len(hits))
-#             continue
+    # 5) Compute Hamming distances, skipping invalid SMILES
+    hamming_matrix: List[List[int]] = []
+    for q_smi, hits in zip(req.texts, smiles_hits):
+        mol_q = Chem.MolFromSmiles(q_smi)
+        if mol_q is None:
+            hamming_matrix.append([-1] * len(hits))
+            continue
 
-#         fp_q = AllChem.GetMorganFingerprintAsBitVect(mol_q, 2, nBits=1024)
-#         row_ham: List[int] = []
-#         for hit in hits:
-#             if hit == "UNKNOWN":
-#                 row_ham.append(-1)
-#                 continue
+        fp_q = AllChem.GetMorganFingerprintAsBitVect(mol_q, 2, nBits=1024)
+        row_ham: List[int] = []
+        for hit in hits:
+            if hit == "UNKNOWN":
+                row_ham.append(-1)
+                continue
 
-#             mol_h = Chem.MolFromSmiles(hit)
-#             if mol_h is None:
-#                 row_ham.append(-1)
-#                 continue
+            mol_h = Chem.MolFromSmiles(hit)
+            if mol_h is None:
+                row_ham.append(-1)
+                continue
 
-#             fp_h = AllChem.GetMorganFingerprintAsBitVect(mol_h, 2, nBits=1024)
-#             row_ham.append(hamming_distance(fp_q, fp_h))
+            fp_h = AllChem.GetMorganFingerprintAsBitVect(mol_h, 2, nBits=1024)
+            row_ham.append(hamming_distance(fp_q, fp_h))
 
-#         hamming_matrix.append(row_ham)
+        hamming_matrix.append(row_ham)
 
-#     # 6) Return response
-#     return {
-#         "ids": ids,
-#         "distances": dists,
-#         "smiles": smiles_hits,
-#         "queries": req.texts,
-#         "ged": ged_matrix,
-#         "hamming": hamming_matrix,
-#     }
+    # 6) Return response
+    return {
+        "ids": ids,
+        "distances": dists,
+        "smiles": smiles_hits,
+        "queries": req.texts,
+        "ged": ged_matrix,
+        "hamming": hamming_matrix,
+    }
 
 
 @app.post("/add_to_index")
