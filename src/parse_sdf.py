@@ -12,7 +12,10 @@ from transformers import AutoTokenizer, AutoModel
 # ─── PATH SETUP ───────────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(__file__)
 #DATA_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "data"))
-DATA_DIR = "/mnt/d/akarmark/data"
+#DATA_DIR = "/mnt/d/akarmark/data"
+# ─── 2) Determine data directory relative to this script
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "data"))
 
 SDF_FILENAME = "Compound_000000001_000500000.sdf"
 GZ_FILENAME = SDF_FILENAME + ".gz"
@@ -174,3 +177,4 @@ def parse_sdf_to_csv():
 # ─── RUN ──────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     parse_sdf_to_csv()
+
