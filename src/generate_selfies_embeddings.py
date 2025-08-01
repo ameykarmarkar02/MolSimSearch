@@ -9,7 +9,8 @@ from transformers import AutoTokenizer, AutoModel
 # ─── CONFIG ───────────────────────────────────────────────────────────────────
 # Paths
 BASE_DIR    = os.path.dirname(__file__)
-DATA_DIR    = os.path.normpath(os.path.join(BASE_DIR, "..", "data"))
+#DATA_DIR    = os.path.normpath(os.path.join(BASE_DIR, "..", "data"))
+DATA_DIR = "/mnt/d/akarmark/data"
 INPUT_CSV   = os.path.join(DATA_DIR, "sample_converted.csv")
 OUTPUT_CSV  = os.path.join(DATA_DIR, "selfies_embeddings.csv")
 
