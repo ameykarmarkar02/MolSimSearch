@@ -22,12 +22,23 @@ ENDPOINTS     = list(ENDPOINT_LABELS.keys())
 # k-values for your plots
 K_VALUES      = [3,5,8,10,15,20,25,35]
 BATCH_SIZE    = 5  # number of parallel threads
-INPUT_FILE    = '/mnt/d/akarmark/Results/Data/queries.txt'
-FULL_RESULTS  = '/mnt/d/akarmark/Results/Data/results_full.csv'
-GED_SUMMARY   = '/mnt/d/akarmark/Results/Data/ged_summary.csv'
-HAM_SUMMARY   = '/mnt/d/akarmark/Results/Data/hamming_summary.csv'
-GED_PLOT_PNG  = '/mnt/d/akarmark/Results/Data/mean_GED_vs_k.png'
-HAM_PLOT_PNG  = '/mnt/d/akarmark/Results/Data/mean_Hamming_vs_k.png'
+
+# ─── 1) CONFIG ────────────────────────────────────────────────────────────────
+SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
+RESULTS_DIR  = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "Results", "Data"))
+INPUT_FILE    = os.path.join(RESULTS_DIR, "queries.txt")
+FULL_RESULTS  = os.path.join(RESULTS_DIR, "results_full.csv")
+GED_SUMMARY   = os.path.join(RESULTS_DIR, "ged_summary.csv")
+HAM_SUMMARY   = os.path.join(RESULTS_DIR, "hamming_summary.csv")
+GED_PLOT_PNG  = os.path.join(RESULTS_DIR, "mean_GED_vs_k.png")
+HAM_PLOT_PNG  = os.path.join(RESULTS_DIR, "mean_Hamming_vs_k.png")
+
+# INPUT_FILE    = '/mnt/d/akarmark/Results/Data/queries.txt'
+# FULL_RESULTS  = '/mnt/d/akarmark/Results/Data/results_full.csv'
+# GED_SUMMARY   = '/mnt/d/akarmark/Results/Data/ged_summary.csv'
+# HAM_SUMMARY   = '/mnt/d/akarmark/Results/Data/hamming_summary.csv'
+# GED_PLOT_PNG  = '/mnt/d/akarmark/Results/Data/mean_GED_vs_k.png'
+# HAM_PLOT_PNG  = '/mnt/d/akarmark/Results/Data/mean_Hamming_vs_k.png'
 
 # ─── 2) LOAD QUERIES ─────────────────────────────────────────────────────────
 try:
