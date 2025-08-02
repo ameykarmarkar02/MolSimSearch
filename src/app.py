@@ -47,13 +47,25 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModel.from_pretrained(MODEL_NAME).to(DEVICE).eval()
 
+# ─── Setup paths relative to this script ───────────────────────────────────────
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR   = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "data"))
+OUT_DIR    = os.path.join(DATA_DIR, "faiss_indexes")
 
-SMILES_INDEX_PATH  = "/mnt/d/akarmark/data/faiss_indexes/smiles.index"
-SMILES_IDMAP_PATH  = "/mnt/d/akarmark/data/faiss_indexes/smiles_ids.pkl"
+# ─── Load FAISS index and ID map from OUT_DIR ─────────────────────────────────
+SMILES_INDEX_PATH = os.path.join(OUT_DIR, "smiles.index")
+SMILES_IDMAP_PATH = os.path.join(OUT_DIR, "smiles_ids.pkl")
+
+
+# SMILES_INDEX_PATH  = "/mnt/d/akarmark/data/faiss_indexes/smiles.index"
+# SMILES_IDMAP_PATH  = "/mnt/d/akarmark/data/faiss_indexes/smiles_ids.pkl"
 smiles_index, smiles_id_map = load_faiss_index(SMILES_INDEX_PATH, SMILES_IDMAP_PATH)
 
-SELFIES_INDEX_PATH = "/mnt/d/akarmark/data/faiss_indexes/selfies.index"
-SELFIES_IDMAP_PATH = "/mnt/d/akarmark/data/faiss_indexes/selfies_ids.pkl"
+SELFIES_INDEX_PATH = os.path.join(OUT_DIR, "selfies.index")
+SELFIES_IDMAP_PATH = os.path.join(OUT_DIR, "selfies_ids.pkl")
+
+# SELFIES_INDEX_PATH = "/mnt/d/akarmark/data/faiss_indexes/selfies.index"
+# SELFIES_IDMAP_PATH = "/mnt/d/akarmark/data/faiss_indexes/selfies_ids.pkl"
 selfies_index, selfies_id_map = load_faiss_index(SELFIES_INDEX_PATH, SELFIES_IDMAP_PATH)
 
 # ─────────────── SELFormer Model & Index ───────────────
@@ -64,26 +76,29 @@ sel_tokenizer = AutoTokenizer.from_pretrained(SELF_MODEL)
 sel_model     = AutoModel.from_pretrained(SELF_MODEL, use_safetensors=True).to(DEVICE)
 sel_model.eval()
 
-
+SMILES_SELF_INDEX_PATH    = os.path.join(OUT_DIR, "smiles_SELFormer.index")
+SMILES_SELF_IDMAP_PATH    = os.path.join(OUT_DIR, "smiles_SELFormer_ids.pkl")
+SELFIES_SELF_INDEX_PATH   = os.path.join(OUT_DIR, "selfies_SELFormer.index")
+SELFIES_SELF_IDMAP_PATH   = os.path.join(OUT_DIR, "selfies_SELFormer_ids.pkl")
 
 # # New SELFormer FAISS index
-SMILES_SELF_INDEX_PATH    = "/mnt/d/akarmark/data/faiss_indexes/smiles_SELFormer.index"
-SMILES_SELF_IDMAP_PATH    = "/mnt/d/akarmark/data/faiss_indexes/smiles_SELFormer_ids.pkl"
+# SMILES_SELF_INDEX_PATH    = "/mnt/d/akarmark/data/faiss_indexes/smiles_SELFormer.index"
+# SMILES_SELF_IDMAP_PATH    = "/mnt/d/akarmark/data/faiss_indexes/smiles_SELFormer_ids.pkl"
 smiles_SELFormer_index, smiles_SELFormer_id_map = load_faiss_index(
     SMILES_SELF_INDEX_PATH,
     SMILES_SELF_IDMAP_PATH
 )
 
 #New SELFormer SELFIES index
-SELFIES_SELF_INDEX_PATH = "/mnt/d/akarmark/data/faiss_indexes/selfies_SELFormer.index"
-SELFIES_SELF_IDMAP_PATH = "/mnt/d/akarmark/data/faiss_indexes/selfies_SELFormer_ids.pkl"
+# SELFIES_SELF_INDEX_PATH = "/mnt/d/akarmark/data/faiss_indexes/selfies_SELFormer.index"
+# SELFIES_SELF_IDMAP_PATH = "/mnt/d/akarmark/data/faiss_indexes/selfies_SELFormer_ids.pkl"
 selfies_SELFormer_index, selfies_SELFormer_id_map = load_faiss_index(
     SELFIES_SELF_INDEX_PATH,
     SELFIES_SELF_IDMAP_PATH
 )
 
-
-CONVERTED_CSV = "/mnt/d/akarmark/data/sample_converted.csv"
+CONVERTED_CSV             = os.path.join(DATA_DIR, "sample_converted.csv")
+# CONVERTED_CSV = "/mnt/d/akarmark/data/sample_converted.csv"
 df_mols = pd.read_csv(CONVERTED_CSV)
 
 smiles_to_internal = { df_mols.iloc[idx]["SMILES"]: idx for idx in range(len(df_mols)) }
@@ -97,7 +112,8 @@ print("🔄 Starting to load precomputed SMILES fingerprints...")
 
 
 
-FINGERPRINTS_CSV = "/mnt/d/akarmark/data/smiles_fingerprints.csv"
+# FINGERPRINTS_CSV = "/mnt/d/akarmark/data/smiles_fingerprints.csv"
+FINGERPRINTS_CSV          = os.path.join(DATA_DIR, "smiles_fingerprints.csv")
 
 print("🔄 Starting to load precomputed SMILES fingerprints...")
 
@@ -134,15 +150,31 @@ smiles_to_fp = dict(zip(df_mols["SMILES"].tolist(), all_fps))
 
 
 # Load fingerprint index and ID map once at startup
+
+# ─── Load fingerprint indexes and ID maps ────────────────────────────────────
+FINGERPRINTS_INDEX_PATH = os.path.join(OUT_DIR, "smiles_fingerprints_raw.index")
+FINGERPRINTS_IDMAP_PATH = os.path.join(OUT_DIR, "smiles_fingerprints_raw_ids.pkl")
 fingerprint_index, fingerprint_id_map = load_faiss_index(
-    "/mnt/d/akarmark/data/faiss_indexes/smiles_fingerprints_raw.index",
-    "/mnt/d/akarmark/data/faiss_indexes/smiles_fingerprints_raw_ids.pkl"
+    FINGERPRINTS_INDEX_PATH,
+    FINGERPRINTS_IDMAP_PATH
 )
-# Load fingerprint index and ID map once at startup
+
+SELFIES_FP_INDEX_PATH = os.path.join(OUT_DIR, "selfies_fingerprints_raw.index")
+SELFIES_FP_IDMAP_PATH = os.path.join(OUT_DIR, "selfies_fingerprints_raw_ids.pkl")
 selfies_fp_index, selfies_fp_id_map = load_faiss_index(
-    "/mnt/d/akarmark/data/faiss_indexes/selfies_fingerprints_raw.index",
-    "/mnt/d/akarmark/data/faiss_indexes/selfies_fingerprints_raw_ids.pkl"
+    SELFIES_FP_INDEX_PATH,
+    SELFIES_FP_IDMAP_PATH
 )
+
+# fingerprint_index, fingerprint_id_map = load_faiss_index(
+#     "/mnt/d/akarmark/data/faiss_indexes/smiles_fingerprints_raw.index",
+#     "/mnt/d/akarmark/data/faiss_indexes/smiles_fingerprints_raw_ids.pkl"
+# )
+# # Load fingerprint index and ID map once at startup
+# selfies_fp_index, selfies_fp_id_map = load_faiss_index(
+#     "/mnt/d/akarmark/data/faiss_indexes/selfies_fingerprints_raw.index",
+#     "/mnt/d/akarmark/data/faiss_indexes/selfies_fingerprints_raw_ids.pkl"
+# )
 
 # ─────────────── Request/Response Schemas ───────────────
 
@@ -1521,3 +1553,4 @@ def selfies_fingerprint_semantic_search(req: SemanticSearchRequest):
         selfies_out.append(row_sf)
 
     return {"ids": ids, "distances": dists, "selfies": selfies_out, "queries": req.texts}
+
