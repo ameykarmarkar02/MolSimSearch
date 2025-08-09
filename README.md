@@ -50,6 +50,11 @@ src/
 
 > **Note:** This is a one‑time run. Once embeddings and fingerprints are generated and inserted into FAISS, you can skip these steps for subsequent experiments.
 
+Install libraries:
+```
+pip install rdkit
+```
+
 1. `cd src`
 2. Download molecules from PubChem:
 
