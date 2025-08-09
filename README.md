@@ -53,6 +53,9 @@ src/
 Install libraries:
 ```
 pip install rdkit
+pip install selfies
+pip install torch
+pip install transformers
 ```
 
 1. `cd src`
