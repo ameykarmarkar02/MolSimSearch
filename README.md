@@ -56,6 +56,9 @@ pip install rdkit
 pip install selfies
 pip install torch
 pip install transformers
+pip install pandas
+pip install faiss-cpu
+pip install matplotlib
 ```
 
 1. `cd src`
@@ -79,6 +82,7 @@ python generate_selfies_embeddings.py
 python generate_embeddings_SELFormer.py
 python generate_selfies_embeddings_SELFormer.py
 python generate_fingerprints_SMILES.py
+
 ```
 
 5. Ingest into FAISS (creates 5 indexes: chemBERTa SMILES/SELFIES, SELFormer SMILES/SELFIES, fingerprints):
@@ -114,13 +118,13 @@ Assumptions:
 * You have a `queries.txt` file with query SMILES (one SMILES per line, **do not** enclose in quotes).
 
 Steps:
-
+<!--
 1. From the repository root (the folder just outside `src`) start the app:
 
 ```bash
 uvicorn src.app:app --reload
 ```
-
+-->
 2. In a new shell, `cd src` and run the pipeline:
 
 ```bash
