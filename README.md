@@ -110,6 +110,14 @@ This produces a `queries.txt` file containing 20 chemically diverse query SMILES
 
 ---
 
+## Start the app server (required)
+
+Before running the pipeline, start the FastAPI app that `run_full_pipeline.py` depends on. From the repository root (one level above `src/`) run:
+
+```bash
+uvicorn src.app:app --reload
+
+---
 ## Running the Molecular Similarity Search (end‑to‑end)
 
 Assumptions:
